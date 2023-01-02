@@ -10,6 +10,7 @@ import pickle
 import wandb
 import random
 import math
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 place_name = "Boston, United States" 
@@ -92,26 +93,31 @@ def update(current_state, action, gamma):
 
     def itergdfbearing(gdf, val_checker, state, previous_state):
         bearing_val = []
-        for j in val_checker:
-            # print(gdf.iloc[j]['bearing'])
-            # print((np.abs(180-gdf.iloc[j]['bearing'])))
-            bearing_val.append((np.abs(180 - gdf.iloc[j]['bearing'])))
-        if len(bearing_val) != 0:
-            smallest_angle = min(bearing_val)
-            placer = bearing_val.index(smallest_angle)
-            index = val_checker[placer]
-            next_node_id = gdf.iloc[index]['v']
-            following_state = nodes_list.index(next_node_id)
-        else:
-            no_edge = []
-            no_edge.append(state)
-            available_act = np.setdiff1d(available_actions(previous_state), state)
-            if available_act.size == 0:
-                no_edge.append(previous_state)
-                new = np.random.choice(np.setdiff1d(range(0, int(Q.shape[0])), no_edge))
-                available_act = available_actions(new)
-            following_state = sample_next_action(available_act, previous_state, state)
+        if len(val_checker) > 0:
+            for j in val_checker:
+                # print(gdf.iloc[j]['bearing'])
+                # print((np.abs(180-gdf.iloc[j]['bearing'])))
+                bearing_val.append((np.abs(180 - gdf.iloc[j]['bearing'])))
+            if len(bearing_val) != 0:
+                smallest_angle = min(bearing_val)
+                placer = bearing_val.index(smallest_angle)
+                index = val_checker[placer]
+                next_node_id = gdf.iloc[index]['v']
+                following_state = nodes_list.index(next_node_id)
+            else:
+                no_edge = []
+                no_edge.append(state)
+                available_act = np.setdiff1d(available_actions(previous_state), state)
+                if available_act.size == 0:
+                    no_edge.append(previous_state)
+                    new = np.random.choice(np.setdiff1d(range(0, int(Q.shape[0])), no_edge))
+                    available_act = available_actions(new)
+                following_state = sample_next_action(available_act, previous_state, state)
 
+        else:
+            available_act = np.setdiff1d(available_actions(previous_state), state)
+            following_state = sample_next_action(available_act, previous_state, state)
+            
         return following_state
 
     def itergdfstate(gdf, state):
@@ -131,11 +137,12 @@ def update(current_state, action, gamma):
         return next_action
 
     # Training
+    wandb.init(proj="Boston_Q")
     open_door = []
     scores = []
     previous_state = 0
     random.seed(5)
-    for i in range(0, 100000):
+    for i in tqdm(range(0, 100000)):
         if i % 25000 == 0:
             with open('Q_vals_H', 'wb') as handle:
                 pickle.dump(Q, handle, protocol=pickle.HIGHEST_PROTOCOL)
